@@ -9,12 +9,24 @@
     3. Download the CSV file and rename it something useful. Preferably with a date in the name.
     4. Then `etrade-tool < THE_DOWNLOADED_CSV_FILE`. This will output to stdout a new CSV file
        organized so that it can be imported directly into Google Sheets.
+
+  To import to my sheet:
+    1. Create a copy of the last imported sheet (or the "test import" sheet).
+    2. Delete all of the values on the left side of the sheet.
+    3. Click on cell A1, and File->Import. Upload the output from the etrade-tool.
+       Import location: Replace data at selected cell
+       Separator type: Detect automatically works fine.
+       Convert text to numbers, dates, and formulas: Checked
+       Then click "Import Data"
+    4. You may need to "fill" more rows on the bottom of the sheet or remove some rows.
 */
 
 use chrono::NaiveDate;
 use csv::StringRecord;
 use std::num::ParseFloatError;
 
+// TODO: look up the fields you use in this table to find the index.
+// TODO: verify when parsing the header that all of these fields match.
 static STOCK_HEADERS: &[&str] = &[
     "Symbol",
     "Last Price $",
@@ -136,8 +148,12 @@ impl Converter {
                 let total_value = record.get(9).unwrap_or("").parse()?;
                 let total_gain = record.get(7).unwrap_or("").parse()?;
                 let total_paid = total_value - total_gain;
+                let quantity = record.get(4).unwrap_or("").parse()?;
+                let price_paid = record.get(5).unwrap_or("").parse()?;
                 let lot = Lot {
                     symbol,
+                    quantity,
+                    price_paid,
                     purchase_date,
                     total_paid,
                     total_gain,
@@ -157,12 +173,14 @@ impl Converter {
 
     fn to_csv(&self, out: impl std::io::Write) -> Result<()> {
         let mut writer = csv::Writer::from_writer(out);
-        writer.write_record(&["Symbol", "Purchase Date", "Total Paid", "Total Gain", "Total Value"])?;
+        writer.write_record(&["Symbol", "Purchase Date", "Quantity", "Price Paid", "Total Paid", "Total Gain", "Total Value"])?;
 
         for lot in &self.lots {
             writer.write_record(&[
                 &lot.symbol,
                 &lot.purchase_date.format("%m/%d/%Y").to_string(),
+                &lot.quantity.to_string(),
+                &lot.price_paid.to_string(),
                 &lot.total_paid.to_string(),
                 &lot.total_gain.to_string(),
                 &lot.total_value.to_string(),
@@ -176,6 +194,8 @@ impl Converter {
 #[derive(Debug)]
 struct Lot {
     symbol: String,
+    quantity: f64,
+    price_paid: f64,
     purchase_date: NaiveDate,
     total_paid: f64,
     total_gain: f64,
