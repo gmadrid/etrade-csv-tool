@@ -3,6 +3,8 @@
 A highly-specialized tool for parsing eTrade CSV output
 into a format that I use in my analysis spreadsheets.
 
+#### _This is probably not useful to anyone but me_
+
 
 ### To use:
 1. Go to eTrade. Click "Portfolio" and view by "All Positions."
