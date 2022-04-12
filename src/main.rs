@@ -1,6 +1,8 @@
 use chrono::NaiveDate;
 use csv::StringRecord;
-use std::num::ParseFloatError;
+
+mod csv_with_headers;
+mod error;
 
 // TODO: look up the fields you use in this table to find the index.
 // TODO: verify when parsing the header that all of these fields match.
@@ -17,42 +19,10 @@ static STOCK_HEADERS: &[&str] = &[
     "Value $",
 ];
 
-#[derive(Debug, thiserror::Error)]
-enum Error {
-    #[error("CSV parsing error: {error:?}")]
-    CsvError {
-        #[from]
-        error: csv::Error,
-    },
-
-    #[error("Header row not found in input data")]
-    HeaderRowNotFound,
-
-    // TODO: include row number?
-    #[error("Missing field #{0}")]
-    MissingField(u8),
-
-    #[error("Parse float error: {error:?}")]
-    ParseFloatError {
-        #[from]
-        error: ParseFloatError,
-    },
-}
-type Result<T> = std::result::Result<T, Error>;
+use error::{Error, Result};
 
 fn main() -> Result<()> {
-    // We are going to post-process a very inconsistent input file to
-    // 1) find the data we care about,
-    // 2) validate that the data is as expected.
-    //
-    // For these reasons, we make it "flexible". Oh, and trim() can't hurt.
-    // The data we care about is halfway through the file, so we don't treat the first row as
-    // special at all.
-    let mut rdr = csv::ReaderBuilder::new()
-        .flexible(true)
-        .has_headers(false)
-        .trim(csv::Trim::All)
-        .from_reader(std::io::stdin());
+    let mut rdr = csv_with_headers::CSVWithHeaders::from_reader(std::io::stdin())?;
 
     let mut converter = Converter::default();
     for result in rdr.records() {
@@ -107,6 +77,7 @@ impl Converter {
             && record.get(1).unwrap_or("XXX") == STOCK_HEADERS[1]
         {
             // TODO: maybe check all headers to ensure the output from eTrade hasn't changed.
+
             Ok(Mode::ReadingData)
         } else {
             Ok(Mode::SkippingStart)
